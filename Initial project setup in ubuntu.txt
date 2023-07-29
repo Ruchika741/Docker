@@ -1,0 +1,9 @@
+run below command in your wsl terminal
+#If you haven't already installed Python within WSL, you can do it by opening a WSL terminal and using the package manager (apt-get) to install Python:
+
+sudo apt-get update
+sudo apt-get install python3 python3-venv
+
+grep docker /etc/group
+sudo usermod -aG docker sinhar
+

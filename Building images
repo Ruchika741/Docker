@@ -1,0 +1,187 @@
+# Image and Container
+
+- An image has everything like all the files and configuration settings needed to run an application
+- It has
+		- A cut-down OS like Linux or windows
+		- third party libraries
+		- Application files
+		- Environment variables and so on
+
+- Once we have an image, a container can start from it
+- Container is just like a virtual machine
+		- It provides an isolated environment for executing an application
+		- Can be stopped and restarted
+		- Is just a process. It's a special kind off process because it has all files provided by the image
+		- A container gets it's file system from image and a container has it's own write layer. That means if you run two different containers on same image. It doesn't mean that the file that you created for eg inside home directory of first container will by default get created in home directory of other container running on same image
+
+# Dockerfile Instructions
+
+- A Dockerfile contains instructions for building an image
+- A Dockerfile contains
+
+a) FROM - for specifying a base image which contains files and directories. We build image on top of it. The base image can be an OS like linux, windows or it can be an OS plus a runtime environment. For example if you are a python developer you will start with a python image. If you are a JS developer you will start with a node image. Refer https://docs.docker.com/samples/ url and you will get sample Dockerfile based on different techstacks. In this image we don't have application files
+
+b) WORKDIR - for specifying a working directory. Once we use this command all the following commands will be used in current working directory
+
+c) COPY - for copying application files and directories into the image
+
+d) ADD - for copying application files and directories into the image with some additional features
+		1) ADD https://.../file.json .    //// will copy the file to CWD if you have that file access
+		2) ADD file.zip .    			//// add will automatically uncompress this file
+
+Note - Best practice is to use COPY instead of ADD. Use ADD only if you need any of the above two features
+
+e) RUN - for executing OS commands
+f) ENV - for setting environment variables
+g) EXPOSE - for telling docker that the container is starting at given port
+h) USER - for specifying user that should run the application. Typically, it will run by user with limited privilages
+i) CMD - for specifying the command that should be executed when starting the container
+j) ENTRYPOINT - 
+
+If in Dockerfile we have b before c then it will be as-
+
+WORKDIR /app
+COPY . .                    //// copy everything from current directory to current working directory of the image which is app. 								If you create and run the image in shell mode you will see CWD as app and ls give all the files 								and directories inside it
+
+If we don't have b then-
+
+COPY . /app/				//// if this /app/ directory doesn't exist, docker will automatically create it
+
+What if we want to copy a file with space in it's name to current working directory
+
+COPY ["hello world.txt", "."]
+
+docker build -t flask-app .   //// when we run this command docker client sends the content of this current directory to docker engine. This is called the build context. so docker client sends this build context to docker engine and docker engine starts executing this one by one
+
+- docker images				//// helps to know the size of image
+
+- Sometimes we have few directories of libraries in current WD. The build context will be very huge and the docker client will take lot of time to transfer it to docker engine. Since we already have those dependencies inside requirements.txt, we can create a file .dockerignore to exclude transferring those larger directories/files.
+- That's where the use of RUN command comes so that we can intsall those dependencies
+- Then we set the env variables and build the image again. Once you run the container in sh mode and do printenv will list the env variables also. You can also use printenv var_name to see value for var_name
+
+- Exposing the ports- So if you normally run the Flask application without docker, it runs on localhost:5000 . In future if we run this application inside a docker container, this port 5000 will be open on the container not on the host. So on the same machine we can have multiple containers running the same image. All this container will be listening to port 5000 but port 5000 and the host is not going to be mapped automatically to this container. So we use EXPOSE to tell the container what ports it will be listening to. But EXPOSE command doesn't pusblish the ports on the host automatically, it's just a form of documentation to tell us that this container will eventually listen on port 5000 so later when we properly run this application inside a docker container we have to additionaly map a port on the host to port 5000 on the container.
+
+- Define Entrypoints - Used when you are sure that this is the command that should be executed when starting a container. it cannot be overridden with the docker run command like CMD. To override an entrypoint, --ENTRYPOINT should be used when starting the container
+
+- CMD- # Instead of running container as docker run flask-app python3 app.py , we can also run as docker run flask-app
+if we add below step in dockerfile. You can't have multiple commands, if you have then it will only take the last one. Can be overriden while starting the container eg - docker build flask-app echo hello
+Here echo hello will override python3 app.py resp.
+
+Either of CMD or ENTRYPOINT is used
+
+# Difference between RUN and CMD
+
+- We are using RUN at the time of building an image. In contrast the CMD instruction are runtime instruction. It's executed when starting a container
+
+# Speeding up Builds
+
+- An image is a collection of layers. Layer is a small file system that only includes modified files.
+- So when docker tries to build an image, it executes each of this instructions and creates a new layer. That layer only includes files that we have modified as a result of this instruction
+
+- docker history flask-app			//// to get details of every layer in dockerfile
+
+- Docker has an optimization mechanism built into it. Next time we ask docker to build an image, it's gonna look at first layer, if there is not change in the instruction it will not rebuild the layer it will use the same layer from it's cache. In this way docker looks at each instruction one by one and decide if rebuild of layer is required or not
+
+- If there is any change in the file of current directory, it will update the layer built on instruction COPY . . which leads to rebuild of all the following layers. It will again take lot of time. To optimize our build we have to separate the installation of third party dependencies from copying our application files. Instead of copying all the files in one go, we copy only those files which are needed in installation of third party dependency.
+
+- To optimize the build we should have instructions that don't change frequently on the top in dockerfile and the one that changes in the bottom
+
+# Removing images
+
+- docker images       //// to see all images
+- docker image prune		//// this will remove all the images that were created when we were creating our build and it lost 										the connection from main image. It will not remove all images so we first have to remove stopped containers
+- docker conatiner prune
+- docker image rm image_name1 image_name2 		//// remove images
+
+# Tagging images
+
+- You you don't add any tag to the image name while building, it will automaticlly add latest tag to it. It's better to add a tag otherwise it will pull some old latest image
+- So you should always use explicit tags to identify what version you are running in each environment expecially for prod
+
+- docker build -t image_name .			//// this will create an image with tag as latest
+- docker build -t image_name:3.1.5 .		//// here 3.1.5 is a tag which is for semantic versioning. Here they don't release often
+- docker build -t image_name:76 .			//// here 76 is build number. Here they don't release frequently. It's done by CI CD tool
+
+- We can have same image with multiple tags. What if we made a mistake and want to remove one tag
+- docker image remove image_name:76
+
+- One way to tag an image is while building it. What if we want to tag an image later?
+- docker image tag image_name:latest image_name:76
+
+- If the new version gets released with some changes and you want to have latest tag pointing to this latest version of image
+
+- docker build -t image_name:77 .			////new version gets released with some changes
+- docker image tag b06 image_name:latest		//// b06 is starting three letters of image id of latest tag 77
+
+# Sharing Images
+
+- go to hub.docker.com -> create repository (username/image_namexx)-> 
+- To push our image to the repo above go to terminal and give
+- docker images
+- docker image tag b06 username/image_namexx:77	//// 77 is tag added explicitly
+- docker images
+- docker login
+- docker push username/image_name:77
+
+- Suppose you change any thing in your code file and want to update latest image version to docker hub
+
+- docker build -t image_namexx:3 .
+- docker image tag image_name:3 username/image_namexx:3
+- docker push username/image_name:3
+
+# Saving and Loading files from one machine to another without using docker hub-
+
+- docker image save --help
+- docker image save -o flask-app.tar image_name:3  		//// .tar file in linux is zipped file in windows. -o is option. Each file inside it would repesent a layer
+
+- first delete the image and load it using .tar file
+- docker image remove image_name:3
+- docker image load -i flask-app.tar
+
+# Summary-
+
+FROM         # to specify the base image 
+WORKDIR      # to set the working directory
+COPY         # to copy files/directories
+ADD          # to copy files/directories
+RUN          # to run commands 
+ENV          # to set environment variables
+EXPOSE       # to document the port the container is listening on
+USER         # to set the user running the app
+CMD          # to set the default command/program
+ENTRYPOINT   # to set the default command/program
+
+- Dockerfile instructions
+
+docker build -t <name> .
+docker images 
+docker image ls 
+docker run -it <image> sh 
+
+- Starting and stopping containers
+
+docker stop <containerID> 
+docker start <containerID>
+
+- Removing containers
+
+docker container rm <containerID> 
+docker rm <containerID> 
+docker rm -f <containerID>        # to force the removaldocker 
+container prune            # to remove stopped containers
+
+- Volumes
+
+docker volume ls
+docker volume create app-data
+docker volume inspect app-data
+docker run -v app-data:/app/data <image>
+
+- Copying files between the host and container
+
+docker cp <containerID>:/app/log.txt .
+docker cp secret.txt <containerID>:/apps
+
+- Sharing source code with containers
+
+docker run -v $(pwd):/app <image>
