@@ -1,0 +1,74 @@
+
+- to deploy our dockerize application, there are two options -
+1) single-host deployment- What if that single server goes down or what if there are huge number of requests
+2) Cluster(group of servers) deployment - provides high availability and high scalability
+
+# Cluster Solutions
+
+- to run clusters, we need special tools called orchestration tools as below 
+
+1) Docker Swarn - Docker has its own tool to run orchestration built in to it. Not so popular
+2) Kubernates(google product) - 
+
+- Here we will focus on single-cluster deployment
+
+# Getting a virtual private server
+
+- To deploy our application we need a VPS
+
+VPS optiona are-
+
+- Digital Ocean - will be used here
+- Google Cloud platform(GCP)
+- Microsoft Azure
+- Amazon web services(AWS)
+
+# Installing Docker machine
+
+- Once we have a server, we need to use a tool called docker machine to talk to docker engine on that server. This way we can run docker commands on our terminal and the commands would be send to docker engine on server.
+
+- Install docker machine from https://github.com/docker/machine/releases. Copy linux command and paste to terminal
+- docker-machine --version
+
+# Provisiong a Host
+
+- Now we will use docker machine to create a virtual private server on digital ocean
+
+- docker-machine create \
+> --driver digitalocean \
+> --digitalocean-access-token token_id\		//// go to digital ocean webpage->api-> generate token_id for app dockercomposesample
+> --engine-install-url "https://releases.ranchor.com/install-docker/19.03.9.sh" \		////optional
+> dockercompose 							//// dockercompose is just a name for server. you can give any
+
+- By running above command docker machine creates a virtual machine with that name dockercompose and on that machine it's going to install docker. So then we will be able to talk to that docker engine remotely on our machine
+- You can see to your account in digital ocean and see that server dockercompose is created there
+
+# Connecting to the Host
+
+- docker-machine ls 		//// will show all our docker machines and the IP on which the app will run
+
+- To connect with this machine we will use SSH. SSH is short for secure shell and it's a protocol for connecting with servers.
+- Using SSH we can open a secure shell session with our server.
+- Using SSH is very complex task. But with docker-machine it abstracts all this complexity from us.
+
+- docker-machine ssh dockercompose 	//// name of our machine is dockercompose
+
+- Now we are logged to our machine using SSH and all of this was setup when we created our docker machine. We will be logged in as root user now.
+
+- ls
+- cd /    //// go to home directory as nothing is present in root directory
+- ls      //// files related to ubuntu. Our apllication is not deployed yet so you can't see anything as app here
+
+# Defining the production configuration
+
+- We will not need the volumes mapping in production docker compose file as it's needed to share source code with container
+- Similary we don't need another container backend-tests because we don't want to run tests continuously in our production environment because it will slow down our server by unnecessarily using the resources.
+- So we will create a separate compose file for production as eg docker-compose.prod.yml
+- Add extra service as restart:  no   to all the containers as if our container crashes it won't restart it. Application becomes unavailable.
+- Then we have to connect with our server using SSH and manually restart the container
+
+# Reducing the image size
+
+- Create a Dockerfile (Dockerfile.prod) for production environment which will be copy of original Dockerfile with some changes
+
+- Continuous Integration and continuous deployment (CI CD) - we can automate our deployment process. So we can configure our tool to checkout the latest version of our code from our github repository then it will build our image and tag it according to the latest build number. Or we can have our tool, tag our images based on the latest commit, this way we can easily trace what version we are running in each environment
